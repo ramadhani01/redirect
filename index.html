@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masukkan Kode</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --fg: #14171c;
+  --muted: #5b6573;
+  --line: #d3d8df;
+  --accent: #14171c;
+  --accent-fg: #ffffff;
+  --danger: #c62828;
+  --overlay: rgba(0, 0, 0, .5);
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1114;
+    --fg: #f1f3f5;
+    --muted: #9aa3b0;
+    --line: #2d333b;
+    --accent: #f1f3f5;
+    --accent-fg: #0f1114;
+    --danger: #ef5350;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1114;
+  --fg: #f1f3f5;
+  --muted: #9aa3b0;
+  --line: #2d333b;
+  --accent: #f1f3f5;
+  --accent-fg: #0f1114;
+  --danger: #ef5350;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding-top: calc(32px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { width: 100%; max-width: 380px; text-align: center; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+p { margin: 0; color: var(--muted); }
+form { display: grid; gap: 10px; margin-top: 28px; }
+input {
+  font: inherit;
+  font-size: 24px;
+  letter-spacing: .5em;
+  text-align: center;
+  min-height: 52px;
+  padding: 10px 12px 10px calc(12px + .5em);
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  width: 100%;
+}
+input::placeholder { letter-spacing: .5em; color: var(--muted); opacity: .5; }
+input:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+
+/* popup kode salah */
+.overlay {
+  position: fixed; inset: 0; z-index: 10;
+  background: var(--overlay);
+  display: grid; place-items: center;
+  padding: 16px;
+}
+.overlay[hidden] { display: none; }
+.modal {
+  width: 100%; max-width: 320px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 24px 20px 20px;
+  text-align: center;
+  animation: pop .15s ease-out;
+}
+.modal h2 { margin: 0 0 6px; font-size: 20px; color: var(--danger); }
+.modal button { width: 100%; margin-top: 18px; }
+@keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+</style>
+</head>
+<body>
+
+<main>
+  <h1>Masukkan kode</h1>
+  <p>Masukkan kode akses untuk melanjutkan.</p>
+  <form id="form" autocomplete="off">
+    <input id="code" type="text" inputmode="numeric" maxlength="3" placeholder="•••" aria-label="Kode akses" autofocus>
+    <button type="submit">Masuk</button>
+  </form>
+</main>
+
+<div class="overlay" id="popup" hidden role="alertdialog" aria-modal="true" aria-labelledby="pt">
+  <div class="modal">
+    <h2 id="pt">Kode salah</h2>
+    <p>Kode yang kamu masukkan tidak valid. Coba lagi.</p>
+    <button type="button" id="ok">OK</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Kode & URL tujuan ada di server (api/check.js), bukan di sini.
+  var form = document.getElementById("form");
+  var input = document.getElementById("code");
+  var popup = document.getElementById("popup");
+  var ok = document.getElementById("ok");
+
+  input.addEventListener("input", function () {
+    input.value = input.value.replace(/\D/g, "");
+  });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var wrong = function () { popup.hidden = false; ok.focus(); };
+    fetch("/api/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: input.value.trim() })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok && d.url) { window.location.href = d.url; } else { wrong(); }
+      })
+      .catch(wrong);
+  });
+
+  // --- deterrent (bisa ditembus, cuma ngurangin orang iseng) ---
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  document.addEventListener("keydown", function (e) {
+    var k = (e.key || "").toLowerCase();
+    if (e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && "ijcek".indexOf(k) !== -1) ||
+        (e.ctrlKey && (k === "u" || k === "s")) ||
+        (e.metaKey && e.altKey && "iuj".indexOf(k) !== -1)) {
+      e.preventDefault();
+    }
+  });
+  function wipe() {
+    document.documentElement.innerHTML = "";
+    document.title = "";
+  }
+  setInterval(function () {
+    if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 200) wipe();
+    var t = performance.now();
+    (function () { debugger; })();
+    if (performance.now() - t > 100) wipe();
+  }, 1000);
+
+  function closePopup() {
+    popup.hidden = true;
+    input.value = "";
+    input.focus();
+  }
+  ok.addEventListener("click", closePopup);
+  popup.addEventListener("click", function (e) { if (e.target === popup) closePopup(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !popup.hidden) closePopup();
+  });
+})();
+</script>
+
+</body>
+</html>
